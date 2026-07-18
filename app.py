@@ -142,6 +142,70 @@ def update_customer(user_id):
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
+# --- FABRİKA (TESİS) YÖNETİMİ UÇLARI ---
+
+@app.route('/api/factories', methods=['POST'])
+def add_factory():
+    try:
+        data = request.json
+        name = data.get('name')
+        ip = data.get('ip')
+        meter_count = data.get('meterCount', 0)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            "INSERT INTO factories (name, ip, meter_count) VALUES (%s, %s, %s) RETURNING id;",
+            (name, ip, meter_count)
+        )
+        new_factory_id = cursor.fetchone()[0]
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({"success": True, "message": "Fabrika başarıyla eklendi!", "id": new_factory_id}), 201
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/factories', methods=['GET'])
+def get_factories():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT id, name, ip, meter_count FROM factories ORDER BY id ASC;")
+        factories = cursor.fetchall()
+        
+        factory_list = [
+            {"id": f[0], "name": f[1], "ip": f[2], "meterCount": f[3]} 
+            for f in factories
+        ]
+            
+        cursor.close()
+        conn.close()
+        return jsonify({"success": True, "factories": factory_list}), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/factories/<int:factory_id>', methods=['DELETE'])
+def delete_factory(factory_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM factories WHERE id = %s RETURNING id;", (factory_id,))
+        deleted_id = cursor.fetchone()
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        if deleted_id:
+            return jsonify({"success": True, "message": "Fabrika başarıyla silindi."}), 200
+        else:
+            return jsonify({"success": False, "message": "Fabrika bulunamadı."}), 404
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
 if __name__ == '__main__':
     print("🚀 Enerji API Sunucusu Başlatılıyor...")
     app.run(debug=True, port=5000)
